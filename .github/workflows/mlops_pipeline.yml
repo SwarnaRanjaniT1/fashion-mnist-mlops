@@ -46,7 +46,7 @@ jobs:
         
     - name: Run EDA (M1)
       run: |
-        python -c "
+        python - <<EOF
 import sys, os
 sys.path.append('.')
 from utils.data_loader import load_fashion_mnist
@@ -70,11 +70,11 @@ plt.tight_layout()
 plt.savefig('reports/eda/class_distribution.png')
 
 print('EDA completed successfully!')
-"
+EOF
         
     - name: Feature Engineering & Explainability (M2)
       run: |
-        python -c "
+        python - <<EOF
 import sys, os
 sys.path.append('.')
 from utils.data_loader import load_fashion_mnist
@@ -100,11 +100,11 @@ joblib.dump(model, 'models/random_forest_base.joblib')
 explain_model(model, X_test_fe[:1000], y_test[:1000])  # Using subset for GitHub Actions
 
 print('Feature Engineering and Explainability completed successfully!')
-"
+EOF
         
     - name: Model Selection & Hyperparameter Optimization (M3)
       run: |
-        python -c "
+        python - <<EOF
 import sys, os
 sys.path.append('.')
 from utils.data_loader import load_fashion_mnist
@@ -143,11 +143,11 @@ optimized_model, optimization_results = optimize_hyperparameters(
 joblib.dump(optimized_model, 'models/optimized_model.joblib')
 
 print('Model Selection and Hyperparameter Optimization completed successfully!')
-"
+EOF
         
     - name: Model Monitoring & Drift Detection (M4)
       run: |
-        python -c "
+        python - <<EOF
 import sys, os
 sys.path.append('.')
 import mlflow
@@ -229,7 +229,7 @@ with mlflow.start_run(run_name='model_monitoring'):
     mlflow.log_artifact('reports/model_performance/drift_monitoring.png')
 
 print('Model Monitoring and Drift Detection completed successfully!')
-"
+EOF
         
     - name: Generate comprehensive report
       run: |
