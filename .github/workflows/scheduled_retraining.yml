@@ -1,0 +1,94 @@
+name: Scheduled Model Retraining
+
+on:
+  # Run workflow manually from the Actions tab
+  workflow_dispatch:
+  
+  # Run on schedule (weekly on Sunday at 2 AM UTC)
+  schedule:
+    - cron: '0 2 * * 0'
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r github_requirements.txt
+        
+    - name: Create output directories
+      run: |
+        mkdir -p reports/eda
+        mkdir -p reports/explainability
+        mkdir -p reports/model_performance
+        mkdir -p reports/drift_detection
+        mkdir -p models
+        mkdir -p mlruns
+        
+    - name: Download Fashion MNIST dataset
+      run: |
+        python scripts/download_fashion_mnist.py
+      
+    - name: Run model retraining
+      run: |
+        python scripts/retrain_model.py
+        
+    - name: Log model performance
+      run: |
+        python scripts/log_performance.py
+        
+    - name: Evaluate model drift
+      run: |
+        python scripts/evaluate_drift.py
+        
+    - name: Run model benchmark
+      run: |
+        python scripts/model_benchmark.py
+        
+    - name: Generate performance report
+      run: |
+        echo "# Fashion MNIST Model Retraining Results" > retraining_report.md
+        echo "Retraining completed on: $(date)" >> retraining_report.md
+        echo "" >> retraining_report.md
+        echo "## Performance Metrics" >> retraining_report.md
+        echo "See MLflow tracking for detailed metrics." >> retraining_report.md
+        echo "" >> retraining_report.md
+        echo "## Drift Analysis" >> retraining_report.md
+        echo "Drift detection analysis was performed to identify potential data distribution changes." >> retraining_report.md
+        echo "" >> retraining_report.md
+        echo "## Model Benchmarking" >> retraining_report.md
+        echo "The model was benchmarked against previous versions for performance comparison." >> retraining_report.md
+        
+    - name: Upload MLflow Tracking as Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: mlflow-tracking-retraining
+        path: mlruns/
+        
+    - name: Upload Performance Results as Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-results
+        path: reports/model_performance/
+        
+    - name: Upload Models as Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: trained-models
+        path: models/
+        
+    - name: Upload Retraining Report as Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: retraining-report
+        path: retraining_report.md

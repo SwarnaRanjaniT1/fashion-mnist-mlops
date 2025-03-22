@@ -1,0 +1,94 @@
+name: MLOps Pipeline for Fashion MNIST
+
+on:
+  # Run workflow manually from the Actions tab
+  workflow_dispatch:
+  
+  # Run on push to main branch
+  push:
+    branches: [ main ]
+    
+  # Run on schedule (weekly on Monday at 1am)
+  schedule:
+    - cron: '0 1 * * 1'
+
+jobs:
+  run_pipeline:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r github_requirements.txt
+        
+    - name: Create output directories
+      run: |
+        mkdir -p reports/eda
+        mkdir -p reports/explainability
+        mkdir -p reports/model_performance
+        mkdir -p reports/drift_detection
+        mkdir -p models
+        mkdir -p mlruns
+        
+    - name: Download Fashion MNIST dataset
+      run: |
+        python scripts/download_fashion_mnist.py
+      
+    - name: Run Complete MLOps Pipeline
+      run: |
+        python run_mlops_pipeline.py
+        
+    - name: Run Tests
+      run: |
+        pytest -xvs tests/
+
+    - name: Upload MLflow Tracking as Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: mlflow-tracking
+        path: mlruns/
+        
+    - name: Upload EDA Results as Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: eda-results
+        path: reports/eda/
+        
+    - name: Upload Explainability Results as Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: explainability-results
+        path: reports/explainability/
+        
+    - name: Upload Model Performance Results as Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: model-performance-results
+        path: reports/model_performance/
+        
+    - name: Upload Drift Detection Results as Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: drift-detection-results
+        path: reports/drift_detection/
+        
+    - name: Upload Models as Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: trained-models
+        path: models/
+        
+    - name: Upload MLOps Report as Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: mlops-pipeline-report
+        path: mlops_report.md
