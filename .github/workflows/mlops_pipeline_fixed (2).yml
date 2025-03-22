@@ -18,12 +18,12 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v2
       
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v2
       with:
-        python-version: '3.11'
+        python-version: '3.9'
         
     - name: Install dependencies
       run: |
@@ -250,31 +250,31 @@ jobs:
         echo "![Drift Monitoring](reports/model_performance/drift_monitoring.png)" >> mlops_report.md
         
     - name: Upload comprehensive report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: mlops-pipeline-report
         path: mlops_report.md
         
     - name: Upload eda results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: eda-results
         path: reports/eda/
         
     - name: Upload model explainability results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: explainability-results
         path: reports/explainability/
         
     - name: Upload model performance results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: model-performance-results
         path: reports/model_performance/
         
     - name: Upload MLflow tracking data
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: mlflow-tracking
         path: mlruns/
