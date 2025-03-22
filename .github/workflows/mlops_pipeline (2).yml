@@ -52,43 +52,43 @@ jobs:
         pytest -xvs tests/
 
     - name: Upload MLflow Tracking as Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: mlflow-tracking
         path: mlruns/
         
     - name: Upload EDA Results as Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: eda-results
         path: reports/eda/
         
     - name: Upload Explainability Results as Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: explainability-results
         path: reports/explainability/
         
     - name: Upload Model Performance Results as Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: model-performance-results
         path: reports/model_performance/
         
     - name: Upload Drift Detection Results as Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: drift-detection-results
         path: reports/drift_detection/
         
     - name: Upload Models as Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: trained-models
         path: models/
         
     - name: Upload MLOps Report as Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: mlops-pipeline-report
         path: mlops_report.md

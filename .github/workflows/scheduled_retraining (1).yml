@@ -70,25 +70,25 @@ jobs:
         echo "The model was benchmarked against previous versions for performance comparison." >> retraining_report.md
         
     - name: Upload MLflow Tracking as Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: mlflow-tracking-retraining
         path: mlruns/
         
     - name: Upload Performance Results as Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: performance-results
         path: reports/model_performance/
         
     - name: Upload Models as Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: trained-models
         path: models/
         
     - name: Upload Retraining Report as Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: retraining-report
         path: retraining_report.md
