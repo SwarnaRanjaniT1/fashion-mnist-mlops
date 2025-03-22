@@ -249,32 +249,18 @@ jobs:
         echo "The model was tracked in MLflow and drift detection was implemented." >> mlops_report.md
         echo "![Drift Monitoring](reports/model_performance/drift_monitoring.png)" >> mlops_report.md
         
-    - name: Upload comprehensive report
-      uses: actions/upload-artifact@v2
-      with:
-        name: mlops-pipeline-report
-        path: mlops_report.md
+    - name: Collect artifacts
+      run: |
+        mkdir -p artifacts
+        cp mlops_report.md artifacts/
+        cp -r reports/eda artifacts/
+        cp -r reports/explainability artifacts/
+        cp -r reports/model_performance artifacts/
+        cp -r models artifacts/
+        # Create a tarball of all artifacts
+        tar -czvf mlops_artifacts.tar.gz artifacts/
         
-    - name: Upload eda results
-      uses: actions/upload-artifact@v2
-      with:
-        name: eda-results
-        path: reports/eda/
-        
-    - name: Upload model explainability results
-      uses: actions/upload-artifact@v2
-      with:
-        name: explainability-results
-        path: reports/explainability/
-        
-    - name: Upload model performance results
-      uses: actions/upload-artifact@v2
-      with:
-        name: model-performance-results
-        path: reports/model_performance/
-        
-    - name: Upload MLflow tracking data
-      uses: actions/upload-artifact@v2
-      with:
-        name: mlflow-tracking
-        path: mlruns/
+    - name: List created artifacts
+      run: |
+        echo "Created the following artifacts:"
+        find artifacts -type f | sort
