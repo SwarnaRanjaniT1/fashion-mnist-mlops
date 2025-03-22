@@ -1,0 +1,280 @@
+name: MLOps Pipeline for Fashion MNIST
+
+on:
+  # Run workflow manually from the Actions tab
+  workflow_dispatch:
+  
+  # Run on push to main branch
+  push:
+    branches: [ main ]
+    
+  # Run on schedule (weekly on Monday at 1am)
+  schedule:
+    - cron: '0 1 * * 1'
+
+jobs:
+  run_pipeline:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r github_requirements.txt
+        
+    - name: Create output directories
+      run: |
+        mkdir -p reports/eda
+        mkdir -p reports/explainability
+        mkdir -p reports/model_performance
+        mkdir -p models
+        mkdir -p mlruns
+        
+    # No need for Kaggle credentials since the dataset is publicly available
+        
+    - name: Download Fashion MNIST dataset
+      run: |
+        python scripts/download_fashion_mnist.py
+        
+    - name: Run EDA (M1)
+      run: |
+        python -c "
+import sys, os
+sys.path.append('.')
+from utils.data_loader import load_fashion_mnist
+from utils.eda import perform_eda
+import matplotlib.pyplot as plt
+
+# Load data
+(X_train, y_train), (X_test, y_test) = load_fashion_mnist()
+
+# Generate EDA report
+eda_results = perform_eda(X_train, y_train)
+
+# Save visualization of class distribution
+plt.figure(figsize=(10, 6))
+plt.bar(range(10), eda_results['class_distribution'])
+plt.xticks(range(10), eda_results['class_names'], rotation=45)
+plt.xlabel('Class')
+plt.ylabel('Count')
+plt.title('Class Distribution in Fashion MNIST')
+plt.tight_layout()
+plt.savefig('reports/eda/class_distribution.png')
+
+print('EDA completed successfully!')
+"
+        
+    - name: Feature Engineering & Explainability (M2)
+      run: |
+        python -c "
+import sys, os
+sys.path.append('.')
+from utils.data_loader import load_fashion_mnist
+from utils.feature_engineering import apply_feature_engineering
+from utils.explainability import explain_model
+from sklearn.ensemble import RandomForestClassifier
+import joblib
+
+# Load data
+(X_train, y_train), (X_test, y_test) = load_fashion_mnist()
+
+# Apply feature engineering
+X_train_fe, X_test_fe, feature_pipeline = apply_feature_engineering(X_train, X_test)
+
+# Train a model
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train_fe[:5000], y_train[:5000])  # Using subset for GitHub Actions
+
+# Save model
+joblib.dump(model, 'models/random_forest_base.joblib')
+
+# Generate explainability visualizations
+explain_model(model, X_test_fe[:1000], y_test[:1000])  # Using subset for GitHub Actions
+
+print('Feature Engineering and Explainability completed successfully!')
+"
+        
+    - name: Model Selection & Hyperparameter Optimization (M3)
+      run: |
+        python -c "
+import sys, os
+sys.path.append('.')
+from utils.data_loader import load_fashion_mnist
+from utils.feature_engineering import apply_feature_engineering
+from utils.model_selection import select_model_with_automl
+from utils.hyperparameter_optimization import optimize_hyperparameters
+import joblib
+
+# Load data
+(X_train, y_train), (X_test, y_test) = load_fashion_mnist()
+
+# Apply feature engineering
+X_train_fe, X_test_fe, _ = apply_feature_engineering(X_train, X_test)
+
+# Use subset for GitHub Actions
+X_train_subset = X_train_fe[:5000]
+y_train_subset = y_train[:5000]
+X_test_subset = X_test_fe[:1000]
+y_test_subset = y_test[:1000]
+
+# Select best model using AutoML
+best_model, all_models = select_model_with_automl(
+    X_train_subset, y_train_subset, 
+    X_test_subset, y_test_subset, 
+    n_trials=3
+)
+
+# Optimize hyperparameters
+optimized_model, optimization_results = optimize_hyperparameters(
+    best_model, 
+    X_train_subset, y_train_subset, 
+    X_test_subset, y_test_subset
+)
+
+# Save optimized model
+joblib.dump(optimized_model, 'models/optimized_model.joblib')
+
+print('Model Selection and Hyperparameter Optimization completed successfully!')
+"
+        
+    - name: Model Monitoring & Drift Detection (M4)
+      run: |
+        python -c "
+import sys, os
+sys.path.append('.')
+import mlflow
+import mlflow.sklearn
+import matplotlib.pyplot as plt
+import numpy as np
+import joblib
+from utils.data_loader import load_fashion_mnist
+from utils.feature_engineering import apply_feature_engineering
+from utils.model_monitoring import track_model_performance
+from utils.drift_detection import detect_drift, monitor_drift_over_time
+
+# Set MLflow tracking URI
+mlflow.set_tracking_uri('file:./mlruns')
+mlflow.set_experiment('fashion_mnist_mlops_pipeline')
+
+# Load data
+(X_train, y_train), (X_test, y_test) = load_fashion_mnist()
+
+# Apply feature engineering
+X_train_fe, X_test_fe, _ = apply_feature_engineering(X_train, X_test)
+
+# Use subset for GitHub Actions
+X_train_subset = X_train_fe[:5000]
+y_train_subset = y_train[:5000]
+X_test_subset = X_test_fe[:1000]
+y_test_subset = y_test[:1000]
+
+# Load optimized model
+model = joblib.load('models/optimized_model.joblib')
+
+# Track model performance
+with mlflow.start_run(run_name='model_monitoring'):
+    run_id, metrics = track_model_performance(
+        model, 
+        X_train_subset, y_train_subset, 
+        X_test_subset, y_test_subset
+    )
+    
+    # Log metrics
+    for metric_name, metric_value in metrics.items():
+        mlflow.log_metric(metric_name, metric_value)
+    
+    # Detect drift
+    drift_results = detect_drift(model, X_test_fe, y_test, drift_intensity=0.3)
+    
+    # Log drift metrics
+    mlflow.log_metric('drift_score', drift_results['drift_score'])
+    mlflow.log_param('drift_detected', drift_results['drift_detected'])
+    
+    # Monitor drift over time
+    drift_monitoring = monitor_drift_over_time(
+        model, X_test_subset, y_test_subset,
+        n_batches=5,
+        drift_progression=[0.0, 0.1, 0.2, 0.3, 0.4]
+    )
+    
+    # Create drift plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(
+        [i for i in range(len(drift_monitoring['timestamps']))], 
+        drift_monitoring['accuracy'], 
+        marker='o', 
+        label='Accuracy'
+    )
+    plt.plot(
+        [i for i in range(len(drift_monitoring['timestamps']))], 
+        drift_monitoring['drift_scores'], 
+        marker='o', 
+        label='Drift Score'
+    )
+    plt.title('Model Performance Over Time with Increasing Drift')
+    plt.xlabel('Time Point')
+    plt.ylabel('Score')
+    plt.legend()
+    plt.savefig('reports/model_performance/drift_monitoring.png')
+    
+    # Log the plot as an artifact
+    mlflow.log_artifact('reports/model_performance/drift_monitoring.png')
+
+print('Model Monitoring and Drift Detection completed successfully!')
+"
+        
+    - name: Generate comprehensive report
+      run: |
+        echo "# Fashion MNIST MLOps Pipeline Results" > mlops_report.md
+        echo "" >> mlops_report.md
+        echo "## 1. Exploratory Data Analysis" >> mlops_report.md
+        echo "Class distribution and feature statistics were analyzed." >> mlops_report.md
+        echo "![Class Distribution](reports/eda/class_distribution.png)" >> mlops_report.md
+        echo "" >> mlops_report.md
+        echo "## 2. Feature Engineering & Explainability" >> mlops_report.md
+        echo "Feature importance analysis was performed to understand key features." >> mlops_report.md
+        echo "" >> mlops_report.md
+        echo "## 3. Model Selection & Hyperparameter Optimization" >> mlops_report.md
+        echo "Multiple models were compared and the best model was optimized." >> mlops_report.md
+        echo "" >> mlops_report.md
+        echo "## 4. Model Monitoring & Drift Detection" >> mlops_report.md
+        echo "The model was tracked in MLflow and drift detection was implemented." >> mlops_report.md
+        echo "![Drift Monitoring](reports/model_performance/drift_monitoring.png)" >> mlops_report.md
+        
+    - name: Upload comprehensive report
+      uses: actions/upload-artifact@v3
+      with:
+        name: mlops-pipeline-report
+        path: mlops_report.md
+        
+    - name: Upload eda results
+      uses: actions/upload-artifact@v3
+      with:
+        name: eda-results
+        path: reports/eda/
+        
+    - name: Upload model explainability results
+      uses: actions/upload-artifact@v3
+      with:
+        name: explainability-results
+        path: reports/explainability/
+        
+    - name: Upload model performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: model-performance-results
+        path: reports/model_performance/
+        
+    - name: Upload MLflow tracking data
+      uses: actions/upload-artifact@v3
+      with:
+        name: mlflow-tracking
+        path: mlruns/
